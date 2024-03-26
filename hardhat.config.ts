@@ -26,9 +26,7 @@ const config: HardhatUserConfig = {
     },
     binance: {
       url: `https://data-seed-prebsc-1-s1.binance.org:8545`,
-      accounts: process.env.MNEMONIC
-        ? { mnemonic: process.env.MNEMONIC }
-        : [process.env.WALLET_PRIVATE_KEY!].filter(Boolean),
+      accounts: [process.env.WALLET_PRIVATE_KEY!].filter(Boolean),
     },
     mainnet: {
       url: `https://polygon-rpc.com`,

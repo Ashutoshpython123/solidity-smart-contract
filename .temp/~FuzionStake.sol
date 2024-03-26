@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity ^0.8.20;
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "./lib/SafeMath.sol";
+import "d:/Fuzen/fuzen-smart-contract/node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "d:/Fuzen/fuzen-smart-contract/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "d:/Fuzen/fuzen-smart-contract/node_modules/@openzeppelin/contracts/access/Ownable.sol";
+import "./lib/~SafeMath.sol";
 
 contract FuzionStake is Ownable {
     using SafeMath for uint256;

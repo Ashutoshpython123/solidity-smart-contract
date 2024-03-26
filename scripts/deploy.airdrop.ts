@@ -2,8 +2,8 @@ import hre, { ethers } from "hardhat";
 
 const sleep = (ms:any) => new Promise((r) => setTimeout(r, ms));
 async function main() {
-    const token = "0xCdB7bB8aaD82036B5c81F0FF174121D090483EE5"
-    const owner = "0x1c7257BcBB8fB6866ADA1fDFA7A0e367ca504554"
+    const token = "0x7f16e5f955278C896d314C034890B427E6977533"
+    const owner = "0x6E6114cA36f604c59b301D0268AD0e1541775B38"
     const fuzion = await ethers.deployContract("FuzionAirdrop", [token, owner]);
 
 
