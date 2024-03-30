@@ -11,8 +11,9 @@ REPORT_GAS=true npx hardhat test
 npx hardhat node
 
 npx hardhat --network mumbai run scripts/deploy.fuzion.ts
-npx hardhat --network mumbai run scripts/deploy.airdrop.ts
+npx hardhat --network binance run scripts/deploy.airdrop.ts
 npx hardhat --network mumbai run scripts/deploy.stake.ts
+npx hardhat --network binance run scripts/deploytoken.stake.ts
 ```
 
 
