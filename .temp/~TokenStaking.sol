@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: MIT
-// Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity ^0.8.20;
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "./lib/SafeMath.sol";
+import "d:/Fuzen/fuzen-smart-contract/node_modules/@openzeppelin/contracts/access/Ownable.sol";
+import "./lib/~SafeMath.sol";
 
-contract FuzionStake is Ownable {
+contract TokenStaking is Ownable {
     using SafeMath for uint256;
-    using SafeERC20 for IERC20;
 
     /**
      *  @dev Structs to store user staking data.
@@ -34,11 +30,8 @@ contract FuzionStake is Ownable {
     mapping(uint64 => Rates) public rates;
     mapping(address => bool) private hasStaked;
 
-    address public tokenAddress;
     uint256 public stakedBalance;
-    uint256 public rewardBalance;
     uint256 public stakedTotal;
-    uint256 public totalReward;
     uint64 public index;
     uint64 public rate;
     uint256 public lockDuration;
@@ -46,13 +39,10 @@ contract FuzionStake is Ownable {
     uint256 public totalParticipants;
     bool public isStopped;
 
-    IERC20 public ERC20Interface;
-
     /**
      *  @dev Emitted when user stakes 'stakedAmount' value of tokens
      */
     event Staked(
-        address indexed token,
         address indexed staker_,
         uint256 stakedAmount_
     );
@@ -61,7 +51,6 @@ contract FuzionStake is Ownable {
      *  @dev Emitted when user withdraws his stakings
      */
     event PaidOut(
-        address indexed token,
         address indexed staker_,
         uint256 amount_,
         uint256 reward_
@@ -73,8 +62,6 @@ contract FuzionStake is Ownable {
         uint256 lockDuration,
         uint256 time
     );
-
-    event RewardsAdded(uint256 rewards, uint256 time);
 
     event StakingStopped(bool status, uint256 time);
 
@@ -88,13 +75,10 @@ contract FuzionStake is Ownable {
     constructor(
         address _initialOwner,
         string memory name_,
-        address tokenAddress_,
         uint64 rate_,
         uint256 lockDuration_
     ) public Ownable(_initialOwner) {
         name = name_;
-        require(tokenAddress_ != address(0), "Zero token address");
-        tokenAddress = tokenAddress_;
         lockDuration = lockDuration_;
         require(rate_ != 0, "Zero interest rate");
         rate = rate_;
@@ -124,28 +108,6 @@ contract FuzionStake is Ownable {
     function changeStakingStatus(bool _status) external onlyOwner {
         isStopped = _status;
         emit StakingStopped(_status, block.timestamp);
-    }
-
-    /**
-     *  Requirements:
-     *  `rewardAmount` rewards to be added to the staking contract
-     *  @dev to add rewards to the staking contract
-     *  once the allowance is given to this contract for 'rewardAmount' by the user
-     */
-    function addReward(uint256 rewardAmount)
-        external
-        _realAddress(msg.sender)
-        _hasAllowance(msg.sender, rewardAmount)
-        returns (bool)
-    {
-        require(rewardAmount > 0, "Reward must be positive");
-        totalReward = totalReward.add(rewardAmount);
-        rewardBalance = rewardBalance.add(rewardAmount);
-        if (!_payMe(msg.sender, rewardAmount)) {
-            return false;
-        }
-        emit RewardsAdded(rewardAmount, block.timestamp);
-        return true;
     }
 
     /**
@@ -185,15 +147,15 @@ contract FuzionStake is Ownable {
      *  once the user has given allowance to the staking contract
      */
 
-    function stake(uint256 amount)
+    function stake()
         external
+        payable
         _realAddress(msg.sender)
-        _hasAllowance(msg.sender, amount)
         returns (bool)
     {
-        require(amount > 0, "Can't stake 0 amount");
+        require(msg.value > 0, "Can't stake 0 amount");
         require(!isStopped, "Staking paused");
-        return (_stake(msg.sender, amount));
+        return (_stake(msg.sender, msg.value));
     }
 
     function _stake(address from, uint256 amount) private returns (bool) {
@@ -229,8 +191,7 @@ contract FuzionStake is Ownable {
         }
         stakedBalance = stakedBalance.add(amount);
         stakedTotal = stakedTotal.add(amount);
-        require(_payMe(from, amount), "Payment failed");
-        emit Staked(tokenAddress, from, amount);
+        emit Staked(from, amount);
 
         return true;
     }
@@ -252,19 +213,13 @@ contract FuzionStake is Ownable {
         uint256 reward = _calculate(from, deposits[from].endTime);
         reward = reward.add(deposits[from].rewards);
         uint256 amount = deposits[from].depositAmount;
-
-        require(reward <= rewardBalance, "Not enough rewards");
-
         stakedBalance = stakedBalance.sub(amount);
-        rewardBalance = rewardBalance.sub(reward);
         deposits[from].paid = true;
+        deposits[from].rewards = reward;
         hasStaked[from] = false;
         totalParticipants = totalParticipants.sub(1);
-
-        if (_payDirect(from, amount.add(reward))) {
-            emit PaidOut(tokenAddress, from, amount, reward);
-            return true;
-        }
+        payable(from).transfer(amount);
+        emit PaidOut(from, amount, reward);
         return false;
     }
 
@@ -286,9 +241,8 @@ contract FuzionStake is Ownable {
         hasStaked[from] = false; //Check-Effects-Interactions pattern
         totalParticipants = totalParticipants.sub(1);
 
-        bool principalPaid = _payDirect(from, amount);
-        require(principalPaid, "Error paying");
-        emit PaidOut(tokenAddress, from, amount, 0);
+        payable(from).transfer(amount);
+        emit PaidOut(from, amount, 0);
 
         return true;
     }
@@ -348,36 +302,8 @@ contract FuzionStake is Ownable {
         return (interest);
     }
 
-    function _payMe(address payer, uint256 amount) private returns (bool) {
-        return _payTo(payer, address(this), amount);
-    }
-
-    function _payTo(
-        address allower,
-        address receiver,
-        uint256 amount
-    ) private _hasAllowance(allower, amount) returns (bool) {
-        ERC20Interface = IERC20(tokenAddress);
-        ERC20Interface.safeTransferFrom(allower, receiver, amount);
-        return true;
-    }
-
-    function _payDirect(address to, uint256 amount) private returns (bool) {
-        ERC20Interface = IERC20(tokenAddress);
-        ERC20Interface.safeTransfer(to, amount);
-        return true;
-    }
-
     modifier _realAddress(address addr) {
         require(addr != address(0), "Zero address");
-        _;
-    }
-
-    modifier _hasAllowance(address allower, uint256 amount) {
-        // Make sure the allower has provided the right allowance.
-        ERC20Interface = IERC20(tokenAddress);
-        uint256 ourAllowance = ERC20Interface.allowance(allower, address(this));
-        require(amount <= ourAllowance, "Make sure to add enough allowance");
         _;
     }
 }
